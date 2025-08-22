@@ -1,0 +1,242 @@
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+  compression:
+    enabled: true
+  error:
+    include-message: always
+    include-binding-errors: always
+    
+spring:
+  application:
+    name: login-security-monitor
+    
+  datasource:
+    url: jdbc:mysql://localhost:3306/login_security_monitor?useUnicode=true&characterEncoding=utf8&useSSL=true&requireSSL=true&verifyServerCertificate=false&serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=1h
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForLoginSecurityMonitorSystemThatShouldBeChangedInProduction123456789}
+  expiration: ${JWT_EXPIRATION:86400000} # 24小时，单位毫秒
+
+# 应用配置
+app:
+  # 邮件配置
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    from: ${MAIL_FROM:Security Monitor <noreply@yourcompany.com>}
+  
+  # 安全配置
+  security:
+    # 风险评分阈值
+    risk:
+      low-threshold: 30
+      medium-threshold: 60
+      high-threshold: 80
+    
+    # 异地登录检测
+    anomaly:
+      # 地理距离阈值（公里）
+      distance-threshold: 500
+      # 时间窗口（分钟）
+      time-window: 60
+      # 多地登录检测时间窗口（分钟）
+      multiple-location-window: 30
+    
+    # 管理员邮箱列表
+    admin-emails:
+      - admin@yourcompany.com
+      - security@yourcompany.com
+  
+  # IP地理位置API配置
+  geolocation:
+    # 主要API
+    primary-api-url: https://ipapi.co/{ip}/json/
+    # 备用API
+    fallback-api-url: http://ip-api.com/json/{ip}
+    # 请求超时时间（毫秒）
+    timeout: 5000
+    # 缓存过期时间（小时）
+    cache-expire-hours: 24
+  
+  # SSL/TLS证书管理配置
+  ssl:
+    # 证书存储路径
+    storage:
+      path: ${SSL_STORAGE_PATH:/opt/ssl-certs}
+    
+    # ACME配置
+    acme:
+      # Let's Encrypt目录URL
+      letsencrypt:
+        directory: https://acme-v02.api.letsencrypt.org/directory
+        staging-directory: https://acme-staging-v02.api.letsencrypt.org/directory
+      
+      # ZeroSSL配置
+      zerossl:
+        directory: https://acme.zerossl.com/v2/DV90
+      
+      # 是否使用测试环境
+      staging: ${SSL_ACME_STAGING:false}
+      
+      # RSA密钥大小
+      key-size: ${SSL_KEY_SIZE:2048}
+      
+      # 请求超时时间（秒）
+      timeout: ${SSL_ACME_TIMEOUT:300}
+    
+    # 自动续期配置
+    auto-renew:
+      enabled: ${SSL_AUTO_RENEW:true}
+      # 过期前多少天开始续期
+      days-before: ${SSL_RENEWAL_DAYS:30}
+      # 最大重试次数
+      max-retry: ${SSL_MAX_RETRY:3}
+    
+    # 调度器配置
+    scheduler:
+      enabled: ${SSL_SCHEDULER_ENABLED:true}
+      # 批处理大小
+      batch-size: ${SSL_BATCH_SIZE:10}
+      # 最大并发续期数
+      max-concurrent: ${SSL_MAX_CONCURRENT:3}
+    
+    # 监控配置
+    monitoring:
+      enabled: ${SSL_MONITORING_ENABLED:true}
+      # 检查间隔（小时）
+      check-interval: ${SSL_CHECK_INTERVAL:24}
+      # 警告阈值（天）
+      warning-threshold: ${SSL_WARNING_THRESHOLD:30}
+      # 严重阈值（天）
+      critical-threshold: ${SSL_CRITICAL_THRESHOLD:7}
+    
+    # 通知配置
+    notifications:
+      enabled: ${SSL_NOTIFICATIONS_ENABLED:true}
+      # 管理员邮箱列表
+      admin-emails:
+        - ${SSL_ADMIN_EMAIL_1:admin@yourcompany.com}
+        - ${SSL_ADMIN_EMAIL_2:ssl-admin@yourcompany.com}
+      # Webhook URL（可选）
+      webhook-url: ${SSL_WEBHOOK_URL:}
+  
+  # HackerOne集成配置
+  integrations:
+    hackerone:
+      # 自动同步开关
+      auto-sync:
+        enabled: ${HACKERONE_AUTO_SYNC:true}
+      # 自动设置显示名称
+      auto-set-display-name: ${HACKERONE_AUTO_DISPLAY_NAME:true}
+      # 显示名称模板（{username}会被替换为实际用户名）
+      display-name:
+        template: ${HACKERONE_DISPLAY_TEMPLATE:HackerOne: {username}}
+
+# 日志配置
+logging:
+  level:
+    com.security.monitor: ${LOG_LEVEL:INFO}
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+  file:
+    name: logs/security-monitor.log
+    max-size: 10MB
+    max-history: 30
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+  health:
+    mail:
+      enabled: true
+    db:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+---
+# 开发环境配置
+spring:
+  config:
+    activate:
+      on-profile: development
+  
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.security.monitor: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+
+---
+# 生产环境配置
+spring:
+  config:
+    activate:
+      on-profile: production
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.security.monitor: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+  file:
+    name: /var/log/security-monitor/application.log

@@ -1,0 +1,463 @@
+# GraphQL Schema for Secure Email System
+
+scalar DateTime
+scalar Long
+
+# =============================================================================
+# Query Root
+# =============================================================================
+
+type Query {
+    # User queries
+    me: User
+    users(search: String, first: Int, after: String, sortBy: String, sortDirection: String): UserConnection
+    user(id: Long!): User
+    
+    # Email queries
+    emails(folderId: Long, first: Int, after: String, sortBy: String, sortDirection: String): EmailConnection
+    email(id: Long!): EmailMessage
+    searchEmails(input: EmailSearchInput!): EmailConnection
+    
+    # Folder and alias queries
+    folders: [EmailFolder!]!
+    aliases: [EmailAlias!]!
+    
+    # ActiveSync queries
+    activeSyncDevices: [ActiveSyncDevice!]!
+    
+    # Statistics queries
+    emailStatistics(startDate: DateTime, endDate: DateTime): EmailStatistics
+    deliveryStatistics(startDate: DateTime!, endDate: DateTime!, domain: String): DeliveryStatistics
+    dmarcReports(domain: String, startDate: DateTime, endDate: DateTime): [DmarcReport!]!
+}
+
+# =============================================================================
+# Mutation Root
+# =============================================================================
+
+type Mutation {
+    # Email mutations
+    sendEmail(input: SendEmailInput!): Boolean!
+    markEmailAsRead(messageId: Long!, isRead: Boolean!): Boolean!
+    starEmail(messageId: Long!, isStarred: Boolean!): Boolean!
+    moveEmail(messageId: Long!, targetFolderId: Long!): Boolean!
+    deleteEmail(messageId: Long!, permanent: Boolean): Boolean!
+    batchEmailOperation(messageIds: [Long!]!, operation: String!, targetFolderId: Long): Boolean!
+    
+    # User mutations
+    createUser(input: CreateUserInput!): User!
+    updateUser(input: UpdateUserInput!): User!
+    deleteUser(id: Long!): Boolean!
+    changePassword(oldPassword: String!, newPassword: String!): Boolean!
+    resetPassword(userId: Long!, newPassword: String!): Boolean!
+    
+    # Folder mutations
+    createFolder(folderName: String!): EmailFolder!
+    updateFolder(id: Long!, folderName: String!): EmailFolder!
+    deleteFolder(id: Long!): Boolean!
+    
+    # Alias mutations
+    createAlias(input: CreateAliasInput!): EmailAlias!
+    updateAlias(id: Long!, input: UpdateAliasInput!): EmailAlias!
+    deleteAlias(id: Long!): Boolean!
+}
+
+# =============================================================================
+# Core Types
+# =============================================================================
+
+type User {
+    id: Long!
+    username: String!
+    email: String!
+    fullName: String
+    phone: String
+    isActive: Boolean!
+    isAdmin: Boolean!
+    isEmailAdmin: Boolean!
+    storageQuota: Long!
+    storageUsed: Long!
+    lastLogin: DateTime
+    emailEnabled: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    
+    # Related data
+    aliases: [EmailAlias!]!
+    folders: [EmailFolder!]!
+    activeSyncDevices: [ActiveSyncDevice!]!
+    
+    # Computed fields
+    storageUsagePercentage: Float!
+    remainingStorage: Long!
+}
+
+type EmailMessage {
+    id: Long!
+    messageId: String!
+    threadId: String
+    subject: String
+    fromAddress: String!
+    toAddresses: [String!]!
+    ccAddresses: [String!]
+    bccAddresses: [String!]
+    replyTo: String
+    bodyText: String
+    bodyHtml: String
+    messageSize: Long!
+    isRead: Boolean!
+    isStarred: Boolean!
+    isDeleted: Boolean!
+    isSpam: Boolean!
+    priorityLevel: Int!
+    receivedAt: DateTime!
+    sentAt: DateTime
+    createdAt: DateTime!
+    
+    # Related data
+    folder: EmailFolder
+    attachments: [EmailAttachment!]!
+    
+    # Computed fields
+    formattedSize: String!
+    priorityDescription: String!
+    hasAttachments: Boolean!
+    attachmentCount: Int!
+}
+
+type EmailFolder {
+    id: Long!
+    folderName: String!
+    folderType: String!
+    messageCount: Int!
+    unreadCount: Int!
+    createdAt: DateTime!
+    
+    # Related data
+    messages(first: Int, after: String): EmailConnection
+}
+
+type EmailAlias {
+    id: Long!
+    aliasEmail: String!
+    domainName: String!
+    isActive: Boolean!
+    forwardTo: String
+    displayName: String
+    description: String
+    createdAt: DateTime!
+    
+    # Computed fields
+    fullEmailAddress: String!
+}
+
+type EmailAttachment {
+    id: Long!
+    filename: String!
+    contentType: String
+    fileSize: Long!
+    fileHash: String
+    isInline: Boolean!
+    contentId: String
+    isQuarantined: Boolean!
+    quarantineReason: String
+    virusScanStatus: String
+    lastScannedAt: DateTime
+    createdAt: DateTime!
+    
+    # Computed fields
+    formattedSize: String!
+    isSafe: Boolean!
+}
+
+type ActiveSyncDevice {
+    id: Long!
+    deviceId: String!
+    deviceType: String
+    deviceModel: String
+    deviceOS: String
+    deviceFriendlyName: String
+    status: String!
+    lastSyncTime: DateTime
+    lastSyncIP: String
+    totalSyncCount: Long!
+    failedSyncCount: Int!
+    isBlocked: Boolean!
+    createdAt: DateTime!
+    
+    # Related data
+    folders: [ActiveSyncFolder!]!
+    syncLogs: [ActiveSyncLog!]!
+    
+    # Computed fields
+    deviceDescription: String!
+    canSync: Boolean!
+}
+
+type ActiveSyncFolder {
+    id: Long!
+    folderId: String!
+    folderName: String!
+    folderType: String!
+    syncEnabled: Boolean!
+    lastSyncTime: DateTime
+    totalItemCount: Int!
+    syncedItemCount: Int!
+    hasChanges: Boolean!
+    
+    # Computed fields
+    syncProgress: Float!
+    needsSync: Boolean!
+}
+
+type ActiveSyncLog {
+    id: Long!
+    syncType: String!
+    command: String!
+    status: String!
+    itemsAdded: Int!
+    itemsChanged: Int!
+    itemsDeleted: Int!
+    itemsFetched: Int!
+    dataSentBytes: Long!
+    dataReceivedBytes: Long!
+    processingTimeMs: Long
+    errorMessage: String
+    createdAt: DateTime!
+    
+    # Computed fields
+    totalSyncItems: Int!
+    totalDataTransfer: Long!
+    isSuccess: Boolean!
+}
+
+type DmarcReport {
+    id: Long!
+    reportId: String!
+    domain: String!
+    orgName: String!
+    beginTime: DateTime!
+    endTime: DateTime!
+    totalMessages: Long!
+    compliantMessages: Long!
+    failedMessages: Long!
+    complianceRate: Float!
+    isSent: Boolean!
+    createdAt: DateTime!
+    
+    # Related data
+    records: [DmarcReportRecord!]!
+}
+
+type DmarcReportRecord {
+    id: Long!
+    sourceIp: String!
+    count: Long!
+    disposition: String
+    headerFrom: String!
+    spfResult: String
+    dkimResult: String
+    dmarcResult: String
+    
+    # Computed fields
+    isDmarcCompliant: Boolean!
+    isSpfPass: Boolean!
+    isDkimPass: Boolean!
+    authFailureDetails: String!
+}
+
+# =============================================================================
+# Connection Types (for pagination)
+# =============================================================================
+
+type UserConnection {
+    edges: [User!]!
+    pageInfo: PageInfo!
+}
+
+type EmailConnection {
+    edges: [EmailMessage!]!
+    pageInfo: PageInfo!
+}
+
+type PageInfo {
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
+    startCursor: String
+    endCursor: String
+}
+
+# =============================================================================
+# Statistics Types
+# =============================================================================
+
+type EmailStatistics {
+    totalMessages: Long!
+    unreadMessages: Long!
+    sentMessages: Long!
+    receivedMessages: Long!
+    spamMessages: Long!
+    totalAttachments: Long!
+    storageUsed: Long!
+    averageMessageSize: Float!
+    messagesPerDay: Float!
+    topSenders: [EmailSender!]!
+    folderDistribution: [FolderStats!]!
+}
+
+type EmailSender {
+    address: String!
+    messageCount: Long!
+    percentage: Float!
+}
+
+type FolderStats {
+    folderName: String!
+    messageCount: Long!
+    unreadCount: Long!
+    percentage: Float!
+}
+
+type DeliveryStatistics {
+    startTime: DateTime!
+    endTime: DateTime!
+    domain: String
+    totalMessages: Long!
+    deliveredMessages: Long!
+    bouncedMessages: Long!
+    deferredMessages: Long!
+    failedMessages: Long!
+    averageDeliveryTime: Float!
+    averageRetries: Float!
+    domainStatistics: [DomainDeliveryStats!]!
+    
+    # Computed fields
+    deliveryRate: Float!
+    bounceRate: Float!
+}
+
+type DomainDeliveryStats {
+    domain: String!
+    messageCount: Long!
+    deliveryRate: Float!
+}
+
+# =============================================================================
+# Input Types
+# =============================================================================
+
+input EmailSearchInput {
+    query: String
+    folder: String
+    isRead: Boolean
+    isStarred: Boolean
+    hasAttachments: Boolean
+    fromAddress: String
+    toAddress: String
+    startDate: DateTime
+    endDate: DateTime
+    sortBy: String
+    sortDirection: String
+    page: Int
+    size: Int
+}
+
+input SendEmailInput {
+    from: String
+    to: [String!]!
+    cc: [String!]
+    bcc: [String!]
+    subject: String!
+    bodyText: String
+    bodyHtml: String
+    priority: Int
+    replyTo: String
+}
+
+input CreateUserInput {
+    username: String!
+    email: String!
+    password: String!
+    fullName: String
+    phone: String
+    isAdmin: Boolean
+    isEmailAdmin: Boolean
+    storageQuota: Long
+    emailEnabled: Boolean
+}
+
+input UpdateUserInput {
+    email: String
+    fullName: String
+    phone: String
+    isActive: Boolean
+    storageQuota: Long
+    emailEnabled: Boolean
+}
+
+input CreateAliasInput {
+    aliasEmail: String!
+    domainName: String!
+    forwardTo: String
+    displayName: String
+    description: String
+}
+
+input UpdateAliasInput {
+    forwardTo: String
+    displayName: String
+    description: String
+    isActive: Boolean
+}
+
+# =============================================================================
+# Enums
+# =============================================================================
+
+enum SortDirection {
+    ASC
+    DESC
+}
+
+enum EmailPriority {
+    HIGH
+    NORMAL
+    LOW
+}
+
+enum FolderType {
+    INBOX
+    SENT
+    DRAFT
+    TRASH
+    SPAM
+    CUSTOM
+}
+
+enum UserRole {
+    USER
+    ADMIN
+    EMAIL_ADMIN
+}
+
+enum DeviceStatus {
+    PENDING
+    ALLOWED
+    BLOCKED
+    QUARANTINED
+    WIPED
+    PROVISION_PENDING
+}
+
+enum SyncStatus {
+    SUCCESS
+    PARTIAL_SUCCESS
+    FAILED
+    PROTOCOL_ERROR
+    AUTHENTICATION_ERROR
+    POLICY_ERROR
+    FOLDER_ERROR
+    SYNC_ERROR
+    SERVER_ERROR
+    CLIENT_ERROR
+}
